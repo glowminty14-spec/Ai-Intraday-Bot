@@ -2,14 +2,16 @@ name: Market Scanner
 
 on:
   schedule:
-    # 04:00 UTC = 09:30 AM IST (Monday to Friday)
-    - cron: '0 4 * * 1-5'
-  workflow_dispatch: # This line lets you run it manually right now
+    - cron: '0 4 * * 1-5' # 9:30 AM IST
+  workflow_dispatch:
+
+permissions:
+  contents: write   # <--- THIS IS REQUIRED TO SAVE TRADES
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # Stops after 6 hours max
+    timeout-minutes: 360
 
     steps:
     - name: Checkout Code
@@ -18,7 +20,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.12'
+        python-version: '3.11'
 
     - name: Install Dependencies
       run: pip install -r requirements.txt
@@ -28,3 +30,10 @@ jobs:
         TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
         TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
       run: python main.py
+
+    # --- SAVE THE LEDGER ---
+    - name: Commit Trade History
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "📈 Update trade ledger [skip ci]"
+        file_pattern: "trades.json"
