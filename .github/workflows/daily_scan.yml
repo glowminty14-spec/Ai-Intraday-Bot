@@ -1,0 +1,30 @@
+name: Market Scanner
+
+on:
+  schedule:
+    # 04:00 UTC = 09:30 AM IST (Monday to Friday)
+    - cron: '0 4 * * 1-5'
+  workflow_dispatch: # This line lets you run it manually right now
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # Stops after 6 hours max
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install Dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Bot
+      env:
+        TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+      run: python main.py
