@@ -20,7 +20,7 @@ MIN_SCORE = 7.5            # High quality threshold
 
 # TIME ZONES (IST)
 START_TRADING = dtime(9, 30)  # Avoid first 15 mins noise
-LUNCH_START = dtime(11, 0)    # Stop trading (Midday Chop)
+LUNCH_START = dtime(12, 0)    # Stop trading (Midday Chop)
 LUNCH_END = dtime(13, 30)     # Resume trading
 STOP_TRADING = dtime(15, 0)   # End day
 
