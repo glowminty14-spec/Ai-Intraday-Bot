@@ -223,7 +223,7 @@ if __name__ == "__main__":
             print(f"   Market Bias: {market_bias}")
 
         # 3. Scan
-        if market_bias == "BULLISH":
+        if True:
             print(f"🔎 Scanning... (Sent: {len(sent_today)}/{MAX_ALERTS_PER_DAY})")
             
             for ticker in STOCKS:
