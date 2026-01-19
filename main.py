@@ -5,7 +5,7 @@ import requests
 import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
-from datetime import datetime, time as dtime
+from datetime import datetime, time as dtime, timedelta
 
 # ================= CONFIG =================
 BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
@@ -15,7 +15,7 @@ TRADES_FILE = "trades.json"
 # STRATEGY SETTINGS
 RVOL_LIMIT = 1.5           # Volume must be 1.5x average
 VWAP_TOLERANCE = 0.05      # Price must be > 0.05% above VWAP
-MAX_ALERTS_PER_DAY = 3     # strict money management
+MAX_ALERTS_PER_DAY = 3     # Strict money management
 MIN_SCORE = 7.5            # High quality threshold
 
 # TIME ZONES (IST)
@@ -24,36 +24,26 @@ LUNCH_START = dtime(11, 0)    # Stop trading (Midday Chop)
 LUNCH_END = dtime(13, 30)     # Resume trading
 STOP_TRADING = dtime(15, 0)   # End day
 
-# EXPANDED NIFTY 50 WATCHLIST
 # ================= EXPANDED WATCHLIST (NIFTY 50) =================
 STOCKS = [
-    # --- BANKS & FINANCE ---
     "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "AXISBANK.NS", "KOTAKBANK.NS",
     "INDUSINDBK.NS", "BAJFINANCE.NS", "BAJAJFINSV.NS", "HDFCLIFE.NS", "SBILIFE.NS",
-    
-    # --- IT & TECH ---
     "TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS", "LTIM.NS",
-    
-    # --- ENERGY & OIL ---
     "RELIANCE.NS", "ONGC.NS", "NTPC.NS", "POWERGRID.NS", "BPCL.NS", "COALINDIA.NS",
-    
-    # --- AUTO ---
     "TATAMOTORS.NS", "MARUTI.NS", "M&M.NS", "HEROMOTOCO.NS", "EICHERMOT.NS", "BAJAJ-AUTO.NS",
-    
-    # --- CONSUMER GOODS (FMCG) ---
     "ITC.NS", "HINDUNILVR.NS", "NESTLEIND.NS", "BRITANNIA.NS", "TATACONSUM.NS", "TITAN.NS",
-    
-    # --- METALS & COMMODITIES ---
     "TATASTEEL.NS", "HINDALCO.NS", "JSWSTEEL.NS", "ULTRACEMCO.NS", "GRASIM.NS",
-    
-    # --- PHARMA ---
     "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "APOLLOHOSP.NS",
-    
-    # --- OTHERS (Infra, Ports, Paints) ---
     "LT.NS", "ADANIENT.NS", "ADANIPORTS.NS", "ASIANPAINT.NS", "BHARTIARTL.NS"
 ]
 
-# ================= LEDGER SYSTEM =================
+# ================= HELPER FUNCTIONS =================
+def get_ist_time():
+    """Converts Server Time (UTC) to Indian Standard Time (IST)"""
+    utc_now = datetime.utcnow()
+    ist_now = utc_now + timedelta(hours=5, minutes=30)
+    return ist_now
+
 def load_trades():
     if not os.path.exists(TRADES_FILE): return []
     try:
@@ -69,7 +59,6 @@ def get_win_rate(trades):
     wins = len([t for t in closed if t["status"] == "WIN"])
     return f"{round((wins / len(closed)) * 100)}%"
 
-# ================= TELEGRAM =================
 def send_telegram(msg):
     if not BOT_TOKEN or not CHAT_ID: return
     try:
@@ -87,30 +76,29 @@ def get_nifty_data():
         if df.empty: return None, "NEUTRAL"
         df.ta.vwap(append=True)
         vwap_col = [c for c in df.columns if "VWAP" in c][0]
+        # Use simple bias check
         bias = "BULLISH" if df.iloc[-1]["Close"] > df.iloc[-1][vwap_col] else "BEARISH"
         return df, bias
     except: return None, "NEUTRAL"
 
-# ================= TRADE MANAGER (FIXED) =================
+# ================= TRADE MANAGER =================
 def check_positions(trades):
     updated = False
     for t in trades:
         if t["status"] != "OPEN": continue
 
         try:
-            # FIX #1: Check ONLY the last candle, not the whole day
-            # This prevents "Fake Wins" where Target hits after SL
             ticker = t["symbol"] + ".NS"
             df = yf.download(ticker, period="1d", interval="5m", progress=False)
             if df.empty: continue
             
-            last = df.iloc[-1] # The most recent closed 5-min candle
+            last = df.iloc[-1] # Most recent closed candle
 
-            # CHECK SL FIRST (Conservative approach)
+            # CHECK SL (Conservative)
             if last["Low"] <= t["sl"]:
                 t["status"] = "LOSS"
                 t["exit_price"] = t["sl"]
-                t["exit_date"] = datetime.now().strftime("%Y-%m-%d")
+                t["exit_date"] = get_ist_time().strftime("%Y-%m-%d")
                 updated = True
                 
                 msg = f"""
@@ -124,7 +112,7 @@ def check_positions(trades):
             elif last["High"] >= t["target"]:
                 t["status"] = "WIN"
                 t["exit_price"] = t["target"]
-                t["exit_date"] = datetime.now().strftime("%Y-%m-%d")
+                t["exit_date"] = get_ist_time().strftime("%Y-%m-%d")
                 updated = True
                 
                 msg = f"""
@@ -138,7 +126,7 @@ def check_positions(trades):
             
     return trades, updated
 
-# ================= ANALYSIS (FIXED SCORING) =================
+# ================= ANALYSIS ENGINE =================
 def analyze_stock(ticker, nifty_df, market_bias):
     try:
         df = yf.download(ticker, period="5d", interval="5m", progress=False)
@@ -155,7 +143,7 @@ def analyze_stock(ticker, nifty_df, market_bias):
 
         curr = df.iloc[-1]
 
-        # 1. HARD FILTERS (Must Pass)
+        # FILTERS
         if market_bias != "BULLISH": return None
         if curr["Close"] <= curr[vwap_col]: return None
         if curr["RVOL"] < RVOL_LIMIT: return None
@@ -163,25 +151,18 @@ def analyze_stock(ticker, nifty_df, market_bias):
         atr_pct = (curr["ATR"] / curr["Close"]) * 100
         if atr_pct < 0.2 or atr_pct > 2.5: return None
 
-        # 2. FIX #2: SCORING FROM ZERO
+        # SCORING
         score = 0
-        
-        # Trend Points (Max 4)
         if curr["Close"] > curr[vwap_col]: score += 2.0
         if curr["EMA9"] > curr["EMA21"]: score += 2.0
-        
-        # Momentum Points (Max 3)
         if curr["RVOL"] > 2.5: score += 2.0
         elif curr["RVOL"] > 1.5: score += 1.0
         
-        # Structure Points (Max 3)
-        # Check relative strength vs Nifty
+        # RS Check
         stock_ret = (curr["Close"] / df["Close"].iloc[-6]) - 1
         nifty_ret = (nifty_df["Close"].iloc[-1] / nifty_df["Close"].iloc[-6]) - 1
         if stock_ret > nifty_ret: score += 1.5
-        if stock_ret > (nifty_ret * 1.5): score += 1.5
 
-        # Final Cutoff
         if score < MIN_SCORE: return None
 
         entry = curr["Close"]
@@ -194,39 +175,39 @@ def analyze_stock(ticker, nifty_df, market_bias):
             "sl": round(sl, 2),
             "target": round(target, 2),
             "score": score,
-            "date": datetime.now().strftime("%Y-%m-%d")
+            "date": get_ist_time().strftime("%Y-%m-%d")
         }
     except: return None
 
 # ================= MAIN RUNNER =================
 if __name__ == "__main__":
-    print(f"🦅 Institutional Bot Active @ {datetime.now().strftime('%H:%M')}")
+    ist_now = get_ist_time()
+    print(f"🦅 Bot Active @ {ist_now.strftime('%H:%M')} IST")
     
     trades = load_trades()
-    sent_today = [t["symbol"] for t in trades if t["date"] == datetime.now().strftime("%Y-%m-%d")]
+    sent_today = [t["symbol"] for t in trades if t["date"] == ist_now.strftime("%Y-%m-%d")]
     
-    # Bot runs for 2 hours max
-    end_time = time.time() + (120 * 60)
+    end_time = time.time() + (120 * 60) # Run for 2 hours
     
     last_nifty_update = None
     nifty_df = None
     market_bias = "NEUTRAL"
 
     while time.time() < end_time:
-        now = datetime.now().time()
+        now_ist = get_ist_time().time()
 
-        # FIX #3: TIME DISCIPLINE
-        if now < START_TRADING:
-            print("⏳ Market Opening Noise... Waiting.")
+        # TIME DISCIPLINE (Using IST)
+        if now_ist < START_TRADING:
+            print(f"⏳ Market Opening Noise ({now_ist.strftime('%H:%M')}). Waiting...")
             time.sleep(60)
             continue
             
-        if LUNCH_START < now < LUNCH_END:
-            print("💤 Midday Chop (Lunch). Sleeping...")
+        if LUNCH_START < now_ist < LUNCH_END:
+            print(f"💤 Midday Chop ({now_ist.strftime('%H:%M')}). Sleeping...")
             time.sleep(300)
             continue
             
-        if now > STOP_TRADING:
+        if now_ist > STOP_TRADING:
             print("🌙 Market Closing. Bye.")
             break
 
