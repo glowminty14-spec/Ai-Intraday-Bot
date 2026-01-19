@@ -24,7 +24,6 @@ LUNCH_START = dtime(11, 0)    # Stop trading (Midday Chop)
 LUNCH_END = dtime(13, 30)     # Resume trading
 STOP_TRADING = dtime(15, 0)   # End day
 
-# ================= EXPANDED WATCHLIST (NIFTY 50) =================
 # ================= WATCHLIST (NIFTY 75 - HIGH LIQUIDITY) =================
 STOCKS = [
     # --- BANKING & FINANCE ---
@@ -253,7 +252,9 @@ if __name__ == "__main__":
             for ticker in STOCKS:
                 clean_sym = ticker.replace(".NS", "")
                 if clean_sym in sent_today: continue
-                print(f"   👉 Checking {clean_sym}...")  # <--- ADD THIS
+                # Optional: Keep this print if you want to see the scan live, or remove it for silence.
+                print(f"   👉 Checking {clean_sym}...") 
+                
                 if any(t["symbol"] == clean_sym and t["status"] == "OPEN" for t in trades): continue
                 if len(sent_today) >= MAX_ALERTS_PER_DAY: break
 
