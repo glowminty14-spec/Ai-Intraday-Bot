@@ -25,16 +25,40 @@ LUNCH_END = dtime(13, 30)     # Resume trading
 STOP_TRADING = dtime(15, 0)   # End day
 
 # ================= EXPANDED WATCHLIST (NIFTY 50) =================
+# ================= WATCHLIST (NIFTY 75 - HIGH LIQUIDITY) =================
 STOCKS = [
+    # --- BANKING & FINANCE ---
     "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "AXISBANK.NS", "KOTAKBANK.NS",
-    "INDUSINDBK.NS", "BAJFINANCE.NS", "BAJAJFINSV.NS", "HDFCLIFE.NS", "SBILIFE.NS",
-    "TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS", "LTIM.NS",
-    "RELIANCE.NS", "ONGC.NS", "NTPC.NS", "POWERGRID.NS", "BPCL.NS", "COALINDIA.NS",
-    "TATAMOTORS.NS", "MARUTI.NS", "M&M.NS", "HEROMOTOCO.NS", "EICHERMOT.NS", "BAJAJ-AUTO.NS",
-    "ITC.NS", "HINDUNILVR.NS", "NESTLEIND.NS", "BRITANNIA.NS", "TATACONSUM.NS", "TITAN.NS",
-    "TATASTEEL.NS", "HINDALCO.NS", "JSWSTEEL.NS", "ULTRACEMCO.NS", "GRASIM.NS",
-    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "APOLLOHOSP.NS",
-    "LT.NS", "ADANIENT.NS", "ADANIPORTS.NS", "ASIANPAINT.NS", "BHARTIARTL.NS"
+    "INDUSINDBK.NS", "BAJFINANCE.NS", "BAJAJFINSV.NS", "CHOLAFIN.NS", "SHRIRAMFIN.NS",
+    "CANBK.NS", "BANKBARODA.NS", "PFC.NS", "REC.NS", "JIOFIN.NS",
+
+    # --- TECHNOLOGY (IT) ---
+    "TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS", "LTIM.NS", 
+    "PERSISTENT.NS", "COFORGE.NS", "KPITTECH.NS",
+
+    # --- DEFENSE & PUBLIC SECTOR (PSU) ---
+    "HAL.NS", "BEL.NS", "MAZDOCK.NS", "COCHINSHIP.NS", "BHEL.NS", "NTPC.NS", 
+    "POWERGRID.NS", "ONGC.NS", "COALINDIA.NS", "BPCL.NS",
+
+    # --- CONSUMER & RETAIL ---
+    "TITAN.NS", "TRENT.NS", "ZOMATO.NS", "DMART.NS", "ITC.NS", "HINDUNILVR.NS", 
+    "NESTLEIND.NS", "BRITANNIA.NS", "TATACONSUM.NS", "ASIANPAINT.NS", "VARUN.NS",
+
+    # --- AUTO & MOTORS ---
+    "TATAMOTORS.NS", "MARUTI.NS", "M&M.NS", "HEROMOTOCO.NS", "EICHERMOT.NS", 
+    "BAJAJ-AUTO.NS", "TVSMOTOR.NS", "MOTHERSON.NS",
+
+    # --- METALS & COMMODITIES ---
+    "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "VEDANTA.NS", "NMDC.NS", 
+    "JINDALSTEL.NS",
+
+    # --- PHARMA ---
+    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "APOLLOHOSP.NS", 
+    "LUPIN.NS", "AUROPHARMA.NS",
+
+    # --- INDUSTRIAL & OTHERS ---
+    "RELIANCE.NS", "LT.NS", "ADANIENT.NS", "ADANIPORTS.NS", "DLF.NS", 
+    "SIEMENS.NS", "ABB.NS", "HAVELLS.NS", "POLYCAB.NS", "VBL.NS", "INDIGO.NS"
 ]
 
 # ================= HELPER FUNCTIONS =================
@@ -259,5 +283,5 @@ if __name__ == "__main__":
                     sent_today.append(clean_sym)
                     print(f"✅ Logged: {clean_sym}")
 
-        print("💤 Sleeping 5 mins...")
-        time.sleep(300)
+        print("💤 Sleeping 3 mins...")
+        time.sleep(180)
