@@ -229,6 +229,7 @@ if __name__ == "__main__":
             for ticker in STOCKS:
                 clean_sym = ticker.replace(".NS", "")
                 if clean_sym in sent_today: continue
+                print(f"   👉 Checking {clean_sym}...")  # <--- ADD THIS
                 if any(t["symbol"] == clean_sym and t["status"] == "OPEN" for t in trades): continue
                 if len(sent_today) >= MAX_ALERTS_PER_DAY: break
 
