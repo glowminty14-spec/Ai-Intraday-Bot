@@ -210,7 +210,7 @@ if __name__ == "__main__":
     trades = load_trades()
     sent_today = [t["symbol"] for t in trades if t["date"] == ist_now.strftime("%Y-%m-%d")]
     
-    end_time = time.time() + (120 * 60) # Run for 2 hours
+   end_time = time.time() + (375 * 60) # Run for 6 hours 15 mins
     
     last_nifty_update = None
     nifty_df = None
