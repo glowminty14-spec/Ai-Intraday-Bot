@@ -210,7 +210,10 @@ if __name__ == "__main__":
     trades = load_trades()
     sent_today = [t["symbol"] for t in trades if t["date"] == ist_now.strftime("%Y-%m-%d")]
     
-   end_time = time.time() + (375 * 60) # Run for 6 hours 15 mins
+    # ----------------------------------------------------
+    # FIX: Run for 6 HOURS (375 mins) to cover Full Day
+    # ----------------------------------------------------
+    end_time = time.time() + (375 * 60) 
     
     last_nifty_update = None
     nifty_df = None
@@ -252,8 +255,9 @@ if __name__ == "__main__":
             for ticker in STOCKS:
                 clean_sym = ticker.replace(".NS", "")
                 if clean_sym in sent_today: continue
-                # Optional: Keep this print if you want to see the scan live, or remove it for silence.
-                print(f"   👉 Checking {clean_sym}...") 
+                
+                # Optional: Keep this print to see activity
+                # print(f"   👉 Checking {clean_sym}...") 
                 
                 if any(t["symbol"] == clean_sym and t["status"] == "OPEN" for t in trades): continue
                 if len(sent_today) >= MAX_ALERTS_PER_DAY: break
