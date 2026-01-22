@@ -2,11 +2,11 @@ name: Market Scanner
 
 on:
   schedule:
-    - cron: '50 3 * * 1-5' # 03:50 UTC = 09:20 AM IST
+    - cron: '50 3 * * 1-5' # 09:20 AM IST (Beats the traffic)
   workflow_dispatch:
 
 permissions:
-  contents: write   # Required to save trades.json
+  contents: write
 
 jobs:
   run-bot:
