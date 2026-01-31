@@ -8,20 +8,20 @@ import yfinance as yf
 import pytz
 from datetime import datetime, time as dtime, timedelta
 
-# ================= CONFIG =================
+# ================= CONFIG (DAILY ACTION MODE) =================
 BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
 CHAT_ID = os.environ.get("TG_CHAT_ID")
 TRADES_FILE = "trades.json"
 
 # STRATEGY SETTINGS
-RVOL_LIMIT = 1.5           # Volume must be 1.5x average
-MIN_SCORE = 7.5            # High quality threshold
-MAX_ALERTS_PER_DAY = 5     # Money management limit
+RVOL_LIMIT = 1.0           # Now accepts "Average" volume (was 1.5)
+MIN_SCORE = 5.0            # Accepts "Good" setups (was 7.5)
+MAX_ALERTS_PER_DAY = 5     # Keeps it manageable
 
 # TIME ZONES (IST)
 IST = pytz.timezone('Asia/Kolkata')
 START_TRADING = dtime(9, 15)  # Market Open
-LUNCH_START = dtime(11, 30)   # Optional: Avoid low volume hours
+LUNCH_START = dtime(11, 30)   # Avoid low volume hours
 LUNCH_END = dtime(13, 00)     
 STOP_TRADING = dtime(15, 30)  # Market Close (Graceful Exit)
 
@@ -94,12 +94,10 @@ def send_telegram(msg):
     except Exception as e:
         print(f"Telegram Error: {e}")
 
-# ================= DATA ENGINE (OPTIMIZED) =================
+# ================= DATA ENGINE (BULK) =================
 def fetch_bulk_data(tickers):
     """Downloads data for ALL tickers + Nifty in one request"""
     try:
-        # Download Nifty + Stocks together
-        # group_by='ticker' ensures data is organized as data['RELIANCE.NS']['Close']
         all_tickers = tickers + ["^NSEI"]
         data = yf.download(all_tickers, period="5d", interval="5m", group_by='ticker', progress=False, threads=True)
         return data
@@ -115,12 +113,10 @@ def update_positions(trades, data):
         if t["status"] != "OPEN": continue
         
         ticker = t["symbol"] + ".NS"
-        # Check if we have data for this ticker
         if ticker not in data.columns.levels[0]: continue
 
         try:
             df = data[ticker]
-            # Get latest complete candle
             if df.empty: continue
             last = df.iloc[-1]
             
@@ -152,7 +148,6 @@ def update_positions(trades, data):
                 send_telegram(msg)
                 
         except Exception as e:
-            print(f"Error updating {ticker}: {e}")
             continue
         
     return trades, updated
@@ -162,7 +157,6 @@ def analyze_market(data, trades, sent_today):
     
     # 1. CHECK MARKET BIAS (NIFTY)
     if "^NSEI" not in data.columns.levels[0]: 
-        print("⚠️ Nifty data missing, skipping scan.")
         return trades
 
     nifty = data["^NSEI"].copy()
@@ -170,33 +164,32 @@ def analyze_market(data, trades, sent_today):
     
     try:
         nifty.ta.vwap(append=True)
-        # Find the VWAP column name (it changes dynamically)
         vwap_col_nifty = [c for c in nifty.columns if "VWAP" in c][0]
-        market_bias = "BULLISH" if nifty["Close"].iloc[-1] > nifty[vwap_col_nifty].iloc[-1] else "BEARISH"
-        print(f"📉 Market Bias: {market_bias}")
-    except:
-        return trades
+        
+        # LOGIC UPDATE: Only stop if market is actively CRASHING (>0.2% below VWAP)
+        # If it is neutral/choppy, we still allow trades.
+        vwap_val = nifty[vwap_col_nifty].iloc[-1]
+        curr_nifty = nifty["Close"].iloc[-1]
 
-    if market_bias != "BULLISH": 
-        return trades # Strategy is Long-Only
+        if curr_nifty < (vwap_val * 0.998): 
+            print("📉 Market is Crashing (Bearish). No Buys.")
+            return trades
+            
+    except: return trades
 
     # 2. SCAN STOCKS
     for ticker in STOCKS:
         clean_sym = ticker.replace(".NS", "")
         
-        # Skip filters
         if clean_sym in sent_today: continue
         if any(t["symbol"] == clean_sym and t["status"] == "OPEN" for t in trades): continue
         if len(sent_today) >= MAX_ALERTS_PER_DAY: break
         
-        # Data Check
         if ticker not in data.columns.levels[0]: continue
         
         try:
             df = data[ticker].copy()
             if df.empty or len(df) < 50: continue
-            
-            # Clean Data
             df.dropna(inplace=True)
 
             # Indicators
@@ -209,37 +202,47 @@ def analyze_market(data, trades, sent_today):
 
             curr = df.iloc[-1]
 
-            # --- STRATEGY FILTERS ---
+            # --- FILTERS (TUNED FOR DAILY ACTION) ---
             if curr["Close"] <= curr[vwap_col]: continue
-            if curr["RVOL"] < RVOL_LIMIT: continue
+            if curr["RVOL"] < RVOL_LIMIT: continue # Now 1.0
             
             atr_pct = (curr["ATR"] / curr["Close"]) * 100
             if atr_pct < 0.2 or atr_pct > 3.0: continue
 
-            # --- SCORING SYSTEM ---
+            # --- SCORING SYSTEM (RE-TUNED) ---
             score = 0
-            if curr["Close"] > curr[vwap_col]: score += 2.0
-            if curr["EMA9"] > curr["EMA21"]: score += 2.0
-            if curr["RVOL"] > 2.5: score += 2.0
-            elif curr["RVOL"] > 1.5: score += 1.0
             
-            # Relative Strength (vs Nifty)
+            # Primary Trend (2.0)
+            if curr["Close"] > curr[vwap_col]: score += 2.0
+            
+            # Momentum (2.0)
+            if curr["EMA9"] > curr["EMA21"]: score += 2.0
+            
+            # Volume Boost (1.0 or 2.0)
+            if curr["RVOL"] > 2.0: score += 2.0
+            elif curr["RVOL"] > 1.2: score += 1.0
+            
+            # Relative Strength (1.0 Bonus)
             stock_ret = (curr["Close"] / df["Close"].iloc[-6]) - 1
             nifty_ret = (nifty["Close"].iloc[-1] / nifty["Close"].iloc[-6]) - 1
-            if stock_ret > nifty_ret: score += 1.5
+            if stock_ret > nifty_ret: score += 1.0 
 
+            # Minimum Score: 5.0
             if score < MIN_SCORE: continue
 
             # --- EXECUTION ---
-            entry = curr["Close"]
-            sl = entry - (2.0 * curr["ATR"])
-            target = entry + (entry - sl) * 2
+            # Paper Trading Simulation: Add 0.05% 'Slippage' to entry price
+            raw_price = curr["Close"]
+            entry = round(raw_price * 1.0005, 2) 
+            
+            sl = round(entry - (2.0 * curr["ATR"]), 2)
+            target = round(entry + (entry - sl) * 2, 2)
 
             new_trade = {
                 "symbol": clean_sym,
-                "entry": round(entry, 2),
-                "sl": round(sl, 2),
-                "target": round(target, 2),
+                "entry": entry,
+                "sl": sl,
+                "target": target,
                 "score": score,
                 "date": current_date,
                 "status": "OPEN"
@@ -247,14 +250,14 @@ def analyze_market(data, trades, sent_today):
             
             trades.append(new_trade)
             sent_today.append(clean_sym)
-            save_trades(trades) # Save immediately
+            save_trades(trades)
             
             msg = f"""
 🚨 **BUY ALERT**
 💎 **{clean_sym}** (Score: {score})
-🟢 Entry: {round(entry, 2)}
-🛑 Stop: {round(sl, 2)}
-🎯 Target: {round(target, 2)}
+🟢 Entry: {entry}
+🛑 Stop: {sl}
+🎯 Target: {target}
 """
             send_telegram(msg)
             print(f"✅ Alert Sent: {clean_sym}")
@@ -266,19 +269,17 @@ def analyze_market(data, trades, sent_today):
 
 # ================= MAIN RUNNER =================
 if __name__ == "__main__":
-    print(f"🦅 Bot Active (Bulk Mode) - {get_ist_time().strftime('%H:%M')} IST")
+    print(f"🦅 Bot Active (Daily Mode) - {get_ist_time().strftime('%H:%M')} IST")
     
     trades = load_trades()
     current_date = get_ist_time().strftime("%Y-%m-%d")
     sent_today = [t["symbol"] for t in trades if t["date"] == current_date]
 
-    # Infinite Loop (Controlled by Time)
     while True:
         now_ist = get_ist_time().time()
 
-        # 1. TIME GATES
         if now_ist < START_TRADING:
-            print(f"⏳ Market not open. Waiting... ({now_ist.strftime('%H:%M')})")
+            print(f"⏳ Waiting for Open... ({now_ist.strftime('%H:%M')})")
             time.sleep(60)
             continue
             
@@ -288,25 +289,21 @@ if __name__ == "__main__":
             continue
             
         if now_ist > STOP_TRADING:
-            print("🌙 Market Closed. Exiting for GitHub to save data.")
+            print("🌙 Market Closed. Exiting.")
             break
 
         print(f"\n🔄 Scanning Market... ({now_ist.strftime('%H:%M')})")
         
-        # 2. BULK DATA FETCH
-        # We fetch: Watchlist + Nifty + Any Currently Open Positions
         open_pos_tickers = [t["symbol"]+".NS" for t in trades if t["status"] == "OPEN"]
         scan_list = list(set(STOCKS + open_pos_tickers))
         
         market_data = fetch_bulk_data(scan_list)
         
         if not market_data.empty:
-            # 3. MANAGE TRADES & SCAN
             trades, was_updated = update_positions(trades, market_data)
             if was_updated: save_trades(trades)
             
             trades = analyze_market(market_data, trades, sent_today)
 
-        # 4. WAIT FOR NEXT CANDLE
         print("💤 Sleeping 5 minutes...")
         time.sleep(300)
