@@ -2,8 +2,13 @@ name: Market Scanner
 
 on:
   schedule:
-    - cron: '50 3 * * 1-5' # 09:20 AM IST (Beats the traffic)
+    - cron: '50 3 * * 1-5' # 03:50 UTC = 09:20 IST
   workflow_dispatch:
+
+# Prevents two bots from running at the same time
+concurrency:
+  group: market-scanner
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -11,7 +16,8 @@ permissions:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    # Increased to 380m to ensure Python finishes gracefully at 15:30 IST
+    timeout-minutes: 380 
 
     steps:
     - name: Checkout Code
@@ -21,6 +27,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
+        cache: 'pip' # Caches dependencies to make startup faster
 
     - name: Install Dependencies
       run: pip install -r requirements.txt
@@ -31,7 +38,9 @@ jobs:
         TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
       run: python -u main.py
 
+    # 🛑 CRITICAL FIX: This runs even if the bot crashes or times out
     - name: Commit Trade History
+      if: always() 
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
         commit_message: "📈 Update trade ledger [skip ci]"
