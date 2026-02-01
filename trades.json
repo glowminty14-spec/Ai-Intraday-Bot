@@ -1,0 +1,49 @@
+[
+    {
+        "symbol": "INDUSINDBK",
+        "entry": 897.45,
+        "sl": 891.73,
+        "target": 908.89,
+        "score": 6.0,
+        "date": "2026-02-01",
+        "status": "LOSS",
+        "exit_price": 891.73,
+        "exit_date": "2026-02-01 11:05"
+    },
+    {
+        "symbol": "PFC",
+        "entry": 379.54,
+        "sl": 377.33,
+        "target": 383.96,
+        "score": 6.0,
+        "date": "2026-02-01",
+        "status": "OPEN"
+    },
+    {
+        "symbol": "JIOFIN",
+        "entry": 254.63,
+        "sl": 253.56,
+        "target": 256.77,
+        "score": 6.0,
+        "date": "2026-02-01",
+        "status": "OPEN"
+    },
+    {
+        "symbol": "INFY",
+        "entry": 1642.02,
+        "sl": 1635.16,
+        "target": 1655.74,
+        "score": 6.0,
+        "date": "2026-02-01",
+        "status": "OPEN"
+    },
+    {
+        "symbol": "LTIM",
+        "entry": 5972.98,
+        "sl": 5943.2,
+        "target": 6032.54,
+        "score": 5.0,
+        "date": "2026-02-01",
+        "status": "OPEN"
+    }
+]
