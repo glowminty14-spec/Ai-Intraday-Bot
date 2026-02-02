@@ -26,7 +26,9 @@
         "target": 256.77,
         "score": 6.0,
         "date": "2026-02-01",
-        "status": "OPEN"
+        "status": "LOSS",
+        "exit_price": 253.56,
+        "exit_date": "2026-02-02 10:38"
     },
     {
         "symbol": "INFY",
@@ -35,7 +37,9 @@
         "target": 1655.74,
         "score": 6.0,
         "date": "2026-02-01",
-        "status": "OPEN"
+        "status": "LOSS",
+        "exit_price": 1635.16,
+        "exit_date": "2026-02-02 10:38"
     },
     {
         "symbol": "LTIM",
