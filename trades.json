@@ -17,7 +17,9 @@
         "target": 383.96,
         "score": 6.0,
         "date": "2026-02-01",
-        "status": "OPEN"
+        "status": "WIN",
+        "exit_price": 383.96,
+        "exit_date": "2026-02-03 10:39"
     },
     {
         "symbol": "JIOFIN",
@@ -48,6 +50,61 @@
         "target": 6032.54,
         "score": 5.0,
         "date": "2026-02-01",
+        "status": "WIN",
+        "exit_price": 6032.54,
+        "exit_date": "2026-02-03 10:39"
+    },
+    {
+        "symbol": "DLF",
+        "entry": 662.88,
+        "sl": 655.63,
+        "target": 677.38,
+        "score": 7.0,
+        "date": "2026-02-03",
+        "status": "LOSS",
+        "exit_price": 655.63,
+        "exit_date": "2026-02-03 13:04"
+    },
+    {
+        "symbol": "COFORGE",
+        "entry": 1725.86,
+        "sl": 1709.94,
+        "target": 1757.7,
+        "score": 5.0,
+        "date": "2026-02-03",
+        "status": "LOSS",
+        "exit_price": 1709.94,
+        "exit_date": "2026-02-03 15:25"
+    },
+    {
+        "symbol": "DIVISLAB",
+        "entry": 6274.14,
+        "sl": 6230.21,
+        "target": 6362.0,
+        "score": 7.0,
+        "date": "2026-02-03",
+        "status": "LOSS",
+        "exit_price": 6230.21,
+        "exit_date": "2026-02-03 13:14"
+    },
+    {
+        "symbol": "SUNPHARMA",
+        "entry": 1700.25,
+        "sl": 1685.65,
+        "target": 1729.45,
+        "score": 6.0,
+        "date": "2026-02-03",
         "status": "OPEN"
+    },
+    {
+        "symbol": "TITAN",
+        "entry": 4093.05,
+        "sl": 4064.11,
+        "target": 4150.93,
+        "score": 6.0,
+        "date": "2026-02-03",
+        "status": "LOSS",
+        "exit_price": 4064.11,
+        "exit_date": "2026-02-03 15:05"
     }
 ]
