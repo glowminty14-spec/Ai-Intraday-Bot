@@ -15,7 +15,7 @@ TRADES_FILE = "trades.json"
 
 # STRATEGY SETTINGS
 RVOL_LIMIT = 1.0           # Now accepts "Average" volume (was 1.5)
-MIN_SCORE = 5.0            # Accepts "Good" setups (was 7.5)
+MIN_SCORE = 7.5            # Accepts "Good" setups (was 7.5)
 MAX_ALERTS_PER_DAY = 5     # Keeps it manageable
 
 # TIME ZONES (IST)
