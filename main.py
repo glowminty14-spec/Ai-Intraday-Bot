@@ -6,64 +6,48 @@ import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 import pytz
-from datetime import datetime, time as dtime, timedelta
+from datetime import datetime, time as dtime
 
-# ================= CONFIG (DAILY ACTION MODE) =================
+# ================= CONFIG (PROFESSIONAL GRADE) =================
 BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
 CHAT_ID = os.environ.get("TG_CHAT_ID")
 TRADES_FILE = "trades.json"
 
 # STRATEGY SETTINGS
-RVOL_LIMIT = 1.0           # Now accepts "Average" volume (was 1.5)
-MIN_SCORE = 7.5            # Accepts "Good" setups (was 7.5)
-MAX_ALERTS_PER_DAY = 5     # Keeps it manageable
+MIN_SCORE = 5.5            # FIXED: Allows high-quality setups, not just "unicorns"
+MAX_ALERTS_PER_DAY = 5     
+MAX_VWAP_DIST = 1.2        
+MIN_NIFTY_MOVE = 0.30      # Trend Day Filter (0.3% - 0.35%)
 
 # TIME ZONES (IST)
 IST = pytz.timezone('Asia/Kolkata')
-START_TRADING = dtime(9, 15)  # Market Open
-LUNCH_START = dtime(11, 30)   # Avoid low volume hours
-LUNCH_END = dtime(13, 00)     
-STOP_TRADING = dtime(15, 30)  # Market Close (Graceful Exit)
+START_TRADING = dtime(9, 20)  
+STOP_NEW_TRADES = dtime(11, 00) # Momentum is best before 11 AM
+STOP_TRADING = dtime(15, 30)  
 
 # ================= WATCHLIST (NIFTY 75) =================
 STOCKS = [
-    # --- BANKING & FINANCE ---
     "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "AXISBANK.NS", "KOTAKBANK.NS",
     "INDUSINDBK.NS", "BAJFINANCE.NS", "BAJAJFINSV.NS", "CHOLAFIN.NS", "SHRIRAMFIN.NS",
     "CANBK.NS", "BANKBARODA.NS", "PFC.NS", "REC.NS", "JIOFIN.NS",
-
-    # --- TECHNOLOGY (IT) ---
     "TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS", "LTIM.NS", 
     "PERSISTENT.NS", "COFORGE.NS", "KPITTECH.NS",
-
-    # --- DEFENSE & PSU ---
     "HAL.NS", "BEL.NS", "MAZDOCK.NS", "COCHINSHIP.NS", "BHEL.NS", "NTPC.NS", 
     "POWERGRID.NS", "ONGC.NS", "COALINDIA.NS", "BPCL.NS",
-
-    # --- CONSUMER ---
     "TITAN.NS", "TRENT.NS", "ZOMATO.NS", "DMART.NS", "ITC.NS", "HINDUNILVR.NS", 
     "NESTLEIND.NS", "BRITANNIA.NS", "TATACONSUM.NS", "ASIANPAINT.NS", "VARUN.NS",
-
-    # --- AUTO ---
     "TATAMOTORS.NS", "MARUTI.NS", "M&M.NS", "HEROMOTOCO.NS", "EICHERMOT.NS", 
     "BAJAJ-AUTO.NS", "TVSMOTOR.NS", "MOTHERSON.NS",
-
-    # --- METALS ---
     "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "VEDANTA.NS", "NMDC.NS", 
     "JINDALSTEL.NS",
-
-    # --- PHARMA ---
     "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "APOLLOHOSP.NS", 
     "LUPIN.NS", "AUROPHARMA.NS",
-
-    # --- OTHERS ---
     "RELIANCE.NS", "LT.NS", "ADANIENT.NS", "ADANIPORTS.NS", "DLF.NS", 
     "SIEMENS.NS", "ABB.NS", "HAVELLS.NS", "POLYCAB.NS", "VBL.NS", "INDIGO.NS"
 ]
 
-# ================= HELPER FUNCTIONS =================
+# ================= CORE FUNCTIONS =================
 def get_ist_time():
-    """Returns current IST time"""
     return datetime.now(IST)
 
 def load_trades():
@@ -75,235 +59,146 @@ def load_trades():
 def save_trades(trades):
     with open(TRADES_FILE, "w") as f: json.dump(trades, f, indent=4)
 
-def get_win_rate(trades):
-    closed = [t for t in trades if t["status"] in ["WIN", "LOSS"]]
-    if not closed: return "0%"
-    wins = len([t for t in closed if t["status"] == "WIN"])
-    return f"{round((wins / len(closed)) * 100)}%"
-
 def send_telegram(msg):
-    if not BOT_TOKEN or not CHAT_ID: 
-        print(f"⚠️ Telegram Token Missing. Msg: {msg}")
-        return
+    if not BOT_TOKEN or not CHAT_ID: return
     try:
-        requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"},
-            timeout=5
-        )
-    except Exception as e:
-        print(f"Telegram Error: {e}")
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                      json={"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"}, timeout=5)
+    except: pass
 
-# ================= DATA ENGINE (BULK) =================
 def fetch_bulk_data(tickers):
-    """Downloads data for ALL tickers + Nifty in one request"""
     try:
-        all_tickers = tickers + ["^NSEI"]
-        data = yf.download(all_tickers, period="5d", interval="5m", group_by='ticker', progress=False, threads=True)
-        return data
+        all_tickers = list(set(tickers + ["^NSEI"]))
+        # Increased to 3d to ensure we have a clean 'Previous Close' for gap detection
+        return yf.download(all_tickers, period="3d", interval="5m", group_by='ticker', progress=False, threads=True)
     except Exception as e:
-        print(f"❌ Data Download Error: {e}")
+        print(f"Error: {e}")
         return pd.DataFrame()
 
-# ================= TRADING LOGIC =================
-def update_positions(trades, data):
-    updated = False
-    
-    for t in trades:
-        if t["status"] != "OPEN": continue
-        
-        ticker = t["symbol"] + ".NS"
-        if ticker not in data.columns.levels[0]: continue
-
-        try:
-            df = data[ticker]
-            if df.empty: continue
-            last = df.iloc[-1]
-            
-            # CHECK EXIT CONDITIONS
-            if last["Low"] <= t["sl"]:
-                t["status"] = "LOSS"
-                t["exit_price"] = t["sl"]
-                t["exit_date"] = get_ist_time().strftime("%Y-%m-%d %H:%M")
-                updated = True
-                
-                msg = f"""
-🛑 **STOP LOSS HIT**
-🔻 **{t['symbol']}** exited at {t['sl']}
-⚠️ Win Rate: {get_win_rate(trades)}
-"""
-                send_telegram(msg)
-            
-            elif last["High"] >= t["target"]:
-                t["status"] = "WIN"
-                t["exit_price"] = t["target"]
-                t["exit_date"] = get_ist_time().strftime("%Y-%m-%d %H:%M")
-                updated = True
-                
-                msg = f"""
-✅ **TARGET HIT!**
-🚀 **{t['symbol']}** exited at {t['target']}
-🏆 Win Rate: {get_win_rate(trades)}
-"""
-                send_telegram(msg)
-                
-        except Exception as e:
-            continue
-        
-    return trades, updated
-
+# ================= ANALYSIS ENGINE =================
 def analyze_market(data, trades, sent_today):
-    current_date = get_ist_time().strftime("%Y-%m-%d")
+    if "^NSEI" not in data.columns.levels[0]: return trades
     
-    # 1. CHECK MARKET BIAS (NIFTY)
-    if "^NSEI" not in data.columns.levels[0]: 
+    # 1. FIX: NIFTY TREND DAY DETECTION
+    nifty = data["^NSEI"].copy().dropna()
+    n_today = nifty[nifty.index.date == nifty.index[-1].date()]
+    if n_today.empty: return trades
+    
+    n_open = n_today["Open"].iloc[0]
+    n_curr = n_today["Close"].iloc[-1]
+    n_move = abs((n_curr - n_open) / n_open) * 100
+    
+    if n_move < MIN_NIFTY_MOVE:
+        print(f"⚠️ Nifty Sideways ({n_move:.2f}%). No momentum trades.")
         return trades
 
-    nifty = data["^NSEI"].copy()
-    if nifty.empty: return trades
-    
-    try:
-        nifty.ta.vwap(append=True)
-        vwap_col_nifty = [c for c in nifty.columns if "VWAP" in c][0]
-        
-        # LOGIC UPDATE: Only stop if market is actively CRASHING (>0.2% below VWAP)
-        # If it is neutral/choppy, we still allow trades.
-        vwap_val = nifty[vwap_col_nifty].iloc[-1]
-        curr_nifty = nifty["Close"].iloc[-1]
-
-        if curr_nifty < (vwap_val * 0.998): 
-            print("📉 Market is Crashing (Bearish). No Buys.")
-            return trades
-            
-    except: return trades
-
-    # 2. SCAN STOCKS
     for ticker in STOCKS:
         clean_sym = ticker.replace(".NS", "")
-        
-        if clean_sym in sent_today: continue
+        if clean_sym in sent_today or len(sent_today) >= MAX_ALERTS_PER_DAY: continue
         if any(t["symbol"] == clean_sym and t["status"] == "OPEN" for t in trades): continue
-        if len(sent_today) >= MAX_ALERTS_PER_DAY: break
-        
         if ticker not in data.columns.levels[0]: continue
-        
+
         try:
-            df = data[ticker].copy()
-            if df.empty or len(df) < 50: continue
-            df.dropna(inplace=True)
+            full_df = data[ticker].copy().dropna()
+            # Split today's data from historical
+            today_df = full_df[full_df.index.date == full_df.index[-1].date()]
+            
+            if len(today_df) < 4: continue # Wait for first 15-20 mins
+
+            # 2. FIX: CORRECT ORB (Opening Range)
+            orb_high = today_df["High"].iloc[:3].max()
+            curr = today_df.iloc[-1]
+            if curr["Close"] <= orb_high: continue
+
+            # 3. FIX: GAP FILTER (Anti-Trap)
+            prev_close = full_df[full_df.index.date < full_df.index[-1].date()]["Close"].iloc[-1]
+            gap_pct = ((today_df["Open"].iloc[0] - prev_close) / prev_close) * 100
+            if abs(gap_pct) > 2.5: continue # Skip huge gaps (mean reversion risk)
 
             # Indicators
-            df.ta.vwap(append=True)
-            vwap_col = [c for c in df.columns if "VWAP" in c][0]
-            df["EMA9"] = ta.ema(df["Close"], 9)
-            df["EMA21"] = ta.ema(df["Close"], 21)
-            df["RVOL"] = df["Volume"] / ta.sma(df["Volume"], 20)
-            df["ATR"] = ta.atr(df["High"], df["Low"], df["Close"], 14)
-
-            curr = df.iloc[-1]
-
-            # --- FILTERS (TUNED FOR DAILY ACTION) ---
-            if curr["Close"] <= curr[vwap_col]: continue
-            if curr["RVOL"] < RVOL_LIMIT: continue # Now 1.0
+            full_df.ta.vwap(append=True)
+            vwap_col = [c for c in full_df.columns if "VWAP" in c][0]
+            today_df = full_df[full_df.index.date == full_df.index[-1].date()] # Refresh with VWAP
             
-            atr_pct = (curr["ATR"] / curr["Close"]) * 100
-            if atr_pct < 0.2 or atr_pct > 3.0: continue
+            curr = today_df.iloc[-1]
+            vwap_val = curr[vwap_col]
+            
+            # Anti-Chasing
+            vwap_dist = (curr["Close"] - vwap_val) / vwap_val * 100
+            if vwap_dist > MAX_VWAP_DIST or curr["Close"] < vwap_val: continue
 
-            # --- SCORING SYSTEM (RE-TUNED) ---
+            # 4. SCORING (Balanced 5.5 Threshold)
             score = 0
+            ema9 = ta.ema(today_df["Close"], 9).iloc[-1]
+            ema21 = ta.ema(today_df["Close"], 21).iloc[-1]
+            if ema9 > ema21: score += 2.0
             
-            # Primary Trend (2.0)
-            if curr["Close"] > curr[vwap_col]: score += 2.0
+            # RVOL
+            avg_vol = today_df["Volume"].rolling(10).mean().iloc[-1]
+            if curr["Volume"] > 2.0 * avg_vol: score += 3.0
+            elif curr["Volume"] > 1.2 * avg_vol: score += 1.5
             
-            # Momentum (2.0)
-            if curr["EMA9"] > curr["EMA21"]: score += 2.0
-            
-            # Volume Boost (1.0 or 2.0)
-            if curr["RVOL"] > 2.0: score += 2.0
-            elif curr["RVOL"] > 1.2: score += 1.0
-            
-            # Relative Strength (1.0 Bonus)
-            stock_ret = (curr["Close"] / df["Close"].iloc[-6]) - 1
-            nifty_ret = (nifty["Close"].iloc[-1] / nifty["Close"].iloc[-6]) - 1
-            if stock_ret > nifty_ret: score += 1.0 
+            # Relative Strength vs Nifty
+            stock_ret = (curr["Close"] / today_df["Open"].iloc[0]) - 1
+            nifty_ret = (n_curr / n_open) - 1
+            if stock_ret > (nifty_ret + 0.003): score += 2.0
 
-            # Minimum Score: 5.0
             if score < MIN_SCORE: continue
 
-            # --- EXECUTION ---
-            # Paper Trading Simulation: Add 0.05% 'Slippage' to entry price
-            raw_price = curr["Close"]
-            entry = round(raw_price * 1.0005, 2) 
-            
-            sl = round(entry - (2.0 * curr["ATR"]), 2)
-            target = round(entry + (entry - sl) * 2, 2)
+            # Execution Logic
+            atr = ta.atr(today_df["High"], today_df["Low"], today_df["Close"], 14).iloc[-1]
+            entry = round(curr["Close"], 2)
+            sl = round(entry - (1.5 * atr), 2)
+            target = round(entry + (entry - sl) * 1.8, 2)
 
-            new_trade = {
-                "symbol": clean_sym,
-                "entry": entry,
-                "sl": sl,
-                "target": target,
-                "score": score,
-                "date": current_date,
-                "status": "OPEN"
+            trade = {
+                "symbol": clean_sym, "entry": entry, "sl": sl, "target": target,
+                "score": score, "date": get_ist_time().strftime("%Y-%m-%d"), "status": "OPEN"
             }
             
-            trades.append(new_trade)
+            trades.append(trade)
             sent_today.append(clean_sym)
             save_trades(trades)
-            
-            msg = f"""
-🚨 **BUY ALERT**
-💎 **{clean_sym}** (Score: {score})
-🟢 Entry: {entry}
-🛑 Stop: {sl}
-🎯 Target: {target}
-"""
-            send_telegram(msg)
-            print(f"✅ Alert Sent: {clean_sym}")
+            send_telegram(f"🚀 **VETTING PASSED**\n💎 **{clean_sym}** (Score: {score})\n\n🟢 Entry: {entry}\n🛑 SL: {sl}\n🎯 Target: {target}")
 
-        except Exception as e:
-            continue
-
+        except: continue
     return trades
 
-# ================= MAIN RUNNER =================
+# ================= RUNNER =================
 if __name__ == "__main__":
-    print(f"🦅 Bot Active (Daily Mode) - {get_ist_time().strftime('%H:%M')} IST")
-    
+    print(f"🦅 Bot Live - Logic Fixes Applied.")
     trades = load_trades()
-    current_date = get_ist_time().strftime("%Y-%m-%d")
-    sent_today = [t["symbol"] for t in trades if t["date"] == current_date]
-
+    
     while True:
         now_ist = get_ist_time().time()
-
         if now_ist < START_TRADING:
-            print(f"⏳ Waiting for Open... ({now_ist.strftime('%H:%M')})")
-            time.sleep(60)
-            continue
-            
-        if LUNCH_START < now_ist < LUNCH_END:
-            print(f"💤 Lunch Break ({now_ist.strftime('%H:%M')})...")
-            time.sleep(300)
-            continue
-            
+            time.sleep(60); continue
         if now_ist > STOP_TRADING:
-            print("🌙 Market Closed. Exiting.")
             break
 
-        print(f"\n🔄 Scanning Market... ({now_ist.strftime('%H:%M')})")
+        today_str = get_ist_time().strftime("%Y-%m-%d")
+        sent_today = [t["symbol"] for t in trades if t["date"] == today_str]
         
-        open_pos_tickers = [t["symbol"]+".NS" for t in trades if t["status"] == "OPEN"]
-        scan_list = list(set(STOCKS + open_pos_tickers))
-        
-        market_data = fetch_bulk_data(scan_list)
-        
-        if not market_data.empty:
-            trades, was_updated = update_positions(trades, market_data)
-            if was_updated: save_trades(trades)
-            
-            trades = analyze_market(market_data, trades, sent_today)
+        open_pos = [t["symbol"]+".NS" for t in trades if t["status"] == "OPEN"]
+        data = fetch_bulk_data(list(set(STOCKS + open_pos)))
 
-        print("💤 Sleeping 5 minutes...")
+        if not data.empty:
+            # Position Updates (Stop loss/Target checks)
+            for t in trades:
+                if t["status"] != "OPEN": continue
+                sym = t["symbol"] + ".NS"
+                if sym in data.columns.levels[0]:
+                    px = data[sym].iloc[-1]
+                    if px["Low"] <= t["sl"]:
+                        t["status"] = "LOSS"
+                        send_telegram(f"🛑 SL HIT: {t['symbol']}")
+                    elif px["High"] >= t["target"]:
+                        t["status"] = "WIN"
+                        send_telegram(f"🎯 TARGET: {t['symbol']}")
+            save_trades(trades)
+            
+            # Scanner
+            if now_ist < STOP_NEW_TRADES:
+                trades = analyze_market(data, trades, sent_today)
+
         time.sleep(300)
