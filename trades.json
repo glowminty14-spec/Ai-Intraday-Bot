@@ -106,5 +106,14 @@
         "status": "LOSS",
         "exit_price": 4064.11,
         "exit_date": "2026-02-03 15:05"
+    },
+    {
+        "symbol": "CIPLA",
+        "entry": 1355.8,
+        "sl": 1352.15,
+        "target": 1362.37,
+        "score": 5.5,
+        "date": "2026-02-19",
+        "status": "LOSS"
     }
 ]
