@@ -115,5 +115,14 @@
         "score": 5.5,
         "date": "2026-02-19",
         "status": "LOSS"
+    },
+    {
+        "symbol": "HAL",
+        "entry": 4197.6,
+        "sl": 4178.66,
+        "target": 4231.69,
+        "score": 5.5,
+        "date": "2026-02-20",
+        "status": "LOSS"
     }
 ]
