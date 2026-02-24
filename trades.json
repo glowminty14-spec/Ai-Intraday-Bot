@@ -124,5 +124,14 @@
         "score": 5.5,
         "date": "2026-02-20",
         "status": "LOSS"
+    },
+    {
+        "symbol": "TVSMOTOR",
+        "entry": 3829.6,
+        "sl": 3807.41,
+        "target": 3869.54,
+        "score": 7.0,
+        "date": "2026-02-24",
+        "status": "LOSS"
     }
 ]
