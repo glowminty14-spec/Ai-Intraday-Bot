@@ -133,5 +133,23 @@
         "score": 7.0,
         "date": "2026-02-24",
         "status": "LOSS"
+    },
+    {
+        "symbol": "ITC",
+        "entry": 313.6,
+        "sl": 312.19,
+        "target": 316.14,
+        "score": 5.5,
+        "date": "2026-03-02",
+        "status": "LOSS"
+    },
+    {
+        "symbol": "DRREDDY",
+        "entry": 1282.8,
+        "sl": 1277.53,
+        "target": 1292.29,
+        "score": 5.5,
+        "date": "2026-03-02",
+        "status": "LOSS"
     }
 ]
