@@ -151,5 +151,50 @@
         "score": 5.5,
         "date": "2026-03-02",
         "status": "LOSS"
+    },
+    {
+        "symbol": "TCS",
+        "entry": 2612.0,
+        "sl": 2603.87,
+        "target": 2626.63,
+        "score": 5.5,
+        "date": "2026-03-03",
+        "status": "OPEN"
+    },
+    {
+        "symbol": "TECHM",
+        "entry": 1345.4,
+        "sl": 1339.78,
+        "target": 1355.52,
+        "score": 5.5,
+        "date": "2026-03-03",
+        "status": "OPEN"
+    },
+    {
+        "symbol": "HINDALCO",
+        "entry": 940.45,
+        "sl": 936.25,
+        "target": 948.01,
+        "score": 5.5,
+        "date": "2026-03-03",
+        "status": "OPEN"
+    },
+    {
+        "symbol": "DRREDDY",
+        "entry": 1294.4,
+        "sl": 1288.49,
+        "target": 1305.04,
+        "score": 5.5,
+        "date": "2026-03-03",
+        "status": "LOSS"
+    },
+    {
+        "symbol": "DIVISLAB",
+        "entry": 6400.0,
+        "sl": 6381.46,
+        "target": 6433.37,
+        "score": 5.5,
+        "date": "2026-03-03",
+        "status": "OPEN"
     }
 ]
