@@ -159,7 +159,7 @@
         "target": 2626.63,
         "score": 5.5,
         "date": "2026-03-03",
-        "status": "OPEN"
+        "status": "LOSS"
     },
     {
         "symbol": "TECHM",
@@ -168,7 +168,7 @@
         "target": 1355.52,
         "score": 5.5,
         "date": "2026-03-03",
-        "status": "OPEN"
+        "status": "LOSS"
     },
     {
         "symbol": "HINDALCO",
@@ -177,7 +177,7 @@
         "target": 948.01,
         "score": 5.5,
         "date": "2026-03-03",
-        "status": "OPEN"
+        "status": "LOSS"
     },
     {
         "symbol": "DRREDDY",
@@ -195,6 +195,6 @@
         "target": 6433.37,
         "score": 5.5,
         "date": "2026-03-03",
-        "status": "OPEN"
+        "status": "LOSS"
     }
 ]
