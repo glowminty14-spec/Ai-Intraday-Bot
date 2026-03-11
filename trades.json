@@ -196,5 +196,23 @@
         "score": 5.5,
         "date": "2026-03-03",
         "status": "LOSS"
+    },
+    {
+        "symbol": "NTPC",
+        "entry": 382.1,
+        "sl": 380.39,
+        "target": 385.18,
+        "score": 5.5,
+        "date": "2026-03-11",
+        "status": "LOSS"
+    },
+    {
+        "symbol": "ADANIPORTS",
+        "entry": 1450.5,
+        "sl": 1442.99,
+        "target": 1464.02,
+        "score": 5.5,
+        "date": "2026-03-11",
+        "status": "LOSS"
     }
 ]
